@@ -32,6 +32,7 @@ beforeAll(async () => {
     type Post @model {
         id: ID!
         title: String!
+        published: Boolean
         createdAt: AWSDateTime
         updatedAt: AWSDateTime
         metadata: PostMetadata
@@ -423,6 +424,212 @@ test('Test updatePost mutation with non-model types', async () => {
         expect(updateResponse.data.updatePost.appearsIn).toEqual(['NEWHOPE', 'EMPIRE'])
     } catch (e) {
         console.log(e)
+        // fail
+        expect(e).toBeUndefined()
+    }
+})
+
+
+test('Test listPost with OR query', async () => {
+    try {
+        const createResponse = await GRAPHQL_CLIENT.query(`mutation {
+            createPost(input: { title: "Value 1" }) {
+                id
+                title
+                createdAt
+                updatedAt
+            }
+        }`, {})
+        console.log(JSON.stringify(createResponse, null, 4))
+        expect(createResponse.data.createPost.id).toBeDefined()
+        expect(createResponse.data.createPost.title).toEqual('Value 1')
+        const createResponse2 = await GRAPHQL_CLIENT.query(`mutation {
+            createPost(input: { title: "Value 2" }) {
+                id
+                title
+                createdAt
+                updatedAt
+            }
+        }`, {})
+        console.log(JSON.stringify(createResponse2, null, 4))
+        expect(createResponse2.data.createPost.id).toBeDefined()
+        expect(createResponse2.data.createPost.title).toEqual('Value 2')
+
+        const listResponse = await GRAPHQL_CLIENT.query(`query {
+            listPosts(filter: {
+                or: [
+                    { title: { eq: "Value 1" }},
+                    { title: { eq: "Value 2" }}
+                ]
+            }) {
+                items {
+                    id
+                    title
+                    createdAt
+                    updatedAt
+                }
+            }
+        }`, {})
+        console.log(JSON.stringify(listResponse, null, 4))
+        expect(listResponse.data.listPosts.items.length).toEqual(2)
+    } catch (e) {
+        console.error(e)
+        // fail
+        expect(e).toBeUndefined()
+    }
+})
+
+test('Test listPost with AND query', async () => {
+    try {
+        const createResponse = await GRAPHQL_CLIENT.query(`mutation {
+            createPost(input: { title: "Value 3", published: true }) {
+                id
+                title
+                published
+                createdAt
+                updatedAt
+            }
+        }`, {})
+        console.log(JSON.stringify(createResponse, null, 4))
+        expect(createResponse.data.createPost.id).toBeDefined()
+        expect(createResponse.data.createPost.title).toEqual('Value 3')
+        const createResponse2 = await GRAPHQL_CLIENT.query(`mutation {
+            createPost(input: { title: "Value 4", published: true }) {
+                id
+                title
+                createdAt
+                updatedAt
+            }
+        }`, {})
+        console.log(JSON.stringify(createResponse2, null, 4))
+        expect(createResponse2.data.createPost.id).toBeDefined()
+        expect(createResponse2.data.createPost.title).toEqual('Value 4')
+
+        const listResponse = await GRAPHQL_CLIENT.query(`query {
+            listPosts(limit: 100, filter: {
+                and: [
+                    { title: { eq: "Value 3" }},
+                    { published: { eq: true }}
+                ]
+            }) {
+                items {
+                    id
+                    title
+                    createdAt
+                    updatedAt
+                }
+            }
+        }`, {})
+        console.log(JSON.stringify(listResponse, null, 4))
+        expect(listResponse.data.listPosts.items.length).toEqual(1)
+
+        // Equivalent to above
+        const listResponse2 = await GRAPHQL_CLIENT.query(`query {
+            listPosts(limit: 100, filter: {
+                title: { eq: "Value 3" },
+                published: { eq: true }
+            }) {
+                items {
+                    id
+                    title
+                    createdAt
+                    updatedAt
+                }
+            }
+        }`, {})
+        console.log(JSON.stringify(listResponse2, null, 4))
+        expect(listResponse2.data.listPosts.items.length).toEqual(1)
+    } catch (e) {
+        console.error(e)
+        // fail
+        expect(e).toBeUndefined()
+    }
+})
+
+test('Test listPost with NOT query', async () => {
+    try {
+        const createResponse = await GRAPHQL_CLIENT.query(`mutation {
+            createPost(input: { title: "Value 5", published: true }) {
+                id
+                title
+                published
+                createdAt
+                updatedAt
+            }
+        }`, {})
+        console.log(JSON.stringify(createResponse, null, 4))
+        expect(createResponse.data.createPost.id).toBeDefined()
+        expect(createResponse.data.createPost.title).toEqual('Value 5')
+        const createResponse2 = await GRAPHQL_CLIENT.query(`mutation {
+            createPost(input: { title: "Value 5", published: false }) {
+                id
+                title
+                published
+                createdAt
+                updatedAt
+            }
+        }`, {})
+        console.log(JSON.stringify(createResponse2, null, 4))
+        expect(createResponse2.data.createPost.id).toBeDefined()
+        expect(createResponse2.data.createPost.title).toEqual('Value 5')
+
+        const createResponse3 = await GRAPHQL_CLIENT.query(`mutation {
+            createPost(input: { title: "Value 5" }) {
+                id
+                title
+                published
+                createdAt
+                updatedAt
+            }
+        }`, {})
+        console.log(JSON.stringify(createResponse3, null, 4))
+        expect(createResponse3.data.createPost.id).toBeDefined()
+        expect(createResponse3.data.createPost.title).toEqual('Value 5')
+
+        const listResponse = await GRAPHQL_CLIENT.query(`query {
+            listPosts(limit: 100, filter: {
+                and: [
+                    { title: { eq: "Value 5" }},
+                    { not:
+                        { published: { eq: true }}
+                    }
+                ]
+            }) {
+                items {
+                    id
+                    title
+                    createdAt
+                    updatedAt
+                }
+            }
+        }`, {})
+        console.log(JSON.stringify(listResponse, null, 4))
+        expect(listResponse.data.listPosts.items.length).toEqual(2)
+
+        const listResponse2 = await GRAPHQL_CLIENT.query(`query {
+            listPosts(
+                limit: 100,
+                filter: {
+                    and: [
+                        { title: { eq: "Value 5" }},
+                        { not:
+                            { published: { eq: false }}
+                        }
+                    ]
+                }
+            ) {
+                items {
+                    id
+                    title
+                    createdAt
+                    updatedAt
+                }
+            }
+        }`, {})
+        console.log(JSON.stringify(listResponse2, null, 4))
+        expect(listResponse2.data.listPosts.items.length).toEqual(2)
+    } catch (e) {
+        console.error(e)
         // fail
         expect(e).toBeUndefined()
     }
