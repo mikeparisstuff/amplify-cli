@@ -1,7 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
 const ora = require('ora');
-const sequential = require('promise-sequential');
 const { makeId } = require('../extensions/amplify-helpers/make-id');
 const constants = require('../extensions/amplify-helpers/constants');
 const gitManager = require('../extensions/amplify-helpers/git-manager');
@@ -65,21 +64,37 @@ async function migrateFrom0To1(context, projectPath, projectConfig) {
     const categoryMigrationTasks = [];
 
     const categoryPlugins = context.amplify.getCategoryPlugins(context);
+    let apiMigrateFunction;
 
     Object.keys(categoryPlugins).forEach((category) => {
       try {
         const { migrate } = require(categoryPlugins[category]);
         if (migrate) {
-          categoryMigrationTasks.push(() => migrate(context));
+          if (category !== 'api') {
+            categoryMigrationTasks.push(() => migrate(context));
+          } else {
+            apiMigrateFunction = migrate;
+          }
         }
       } catch (e) {
         // do nothing, it's fine if a category is not setup for migration
       }
     });
 
+    if (apiMigrateFunction) {
+      categoryMigrationTasks.unshift(() => apiMigrateFunction(context));
+    }
+
     spinner.start('Migrating your project');
-    await sequential(categoryMigrationTasks);
     persistMigrationContext(context.migrationInfo);
+    // await sequential(categoryMigrationTasks);
+    for (let i = 0; i < categoryMigrationTasks.length; i++) {
+      try {
+        await categoryMigrationTasks[i]();
+      } catch (e) {
+        throw e;
+      }
+    }
     removeAmplifyRCFile(projectPath);
     updateGitIgnoreFile(projectPath);
     spinner.succeed('Migrated your project successfully.');
