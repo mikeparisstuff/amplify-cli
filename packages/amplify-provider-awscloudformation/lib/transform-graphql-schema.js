@@ -128,7 +128,7 @@ async function transformGraphQLSchema(context, options) {
       name: 'IsOldApiProject',
       type: 'confirm',
       message: 'We detected an API that was initialized using an older version of the CLI. Do you want to migrate the API so that it is compatible with the latest version of the CLI?',
-      default: false,
+      default: true,
     });
     if (!IsOldApiProject) {
       return;
