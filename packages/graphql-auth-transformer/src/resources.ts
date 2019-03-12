@@ -11,6 +11,7 @@ import {
     block
 } from 'graphql-mapping-template'
 import { ResourceConstants, NONE_VALUE } from 'graphql-transformer-common'
+import { AppSyncAuthModeModes } from './ModelAuthTransformer';
 
 import {
     OWNER_AUTH_STRATEGY,
@@ -35,22 +36,6 @@ export class ResourceFactory {
             [ResourceConstants.PARAMETERS.AuthCognitoUserPoolId]: new StringParameter({
                 Description: 'The id of an existing User Pool to connect. If this is changed, a user pool will not be created for you.',
                 Default: ResourceConstants.NONE
-            }),
-            [ResourceConstants.PARAMETERS.AuthCognitoUserPoolName]: new StringParameter({
-                Description: 'The name of the user pool.',
-                Default: 'AppSyncUserPool'
-            }),
-            [ResourceConstants.PARAMETERS.AuthCognitoUserPoolMobileClientName]: new StringParameter({
-                Description: 'The name of the native user pool client.',
-                Default: 'CognitoNativeClient'
-            }),
-            [ResourceConstants.PARAMETERS.AuthCognitoUserPoolJSClientName]: new StringParameter({
-                Description: 'The name of the web user pool client.',
-                Default: 'CognitoJSClient'
-            }),
-            [ResourceConstants.PARAMETERS.AuthCognitoUserPoolRefreshTokenValidity]: new NumberParameter({
-                Description: 'The time limit, in days, after which the refresh token is no longer valid.',
-                Default: 30
             })
         }
     }
@@ -62,29 +47,22 @@ export class ResourceFactory {
         return {
             Parameters: this.makeParams(),
             Resources: {
-                [ResourceConstants.RESOURCES.AuthCognitoUserPoolLogicalID]: this.makeUserPool(),
-                [ResourceConstants.RESOURCES.AuthCognitoUserPoolNativeClientLogicalID]: this.makeUserPoolNativeClient(),
-                [ResourceConstants.RESOURCES.AuthCognitoUserPoolJSClientLogicalID]: this.makeUserPoolJSClient(),
                 [ResourceConstants.RESOURCES.APIKeyLogicalID]: this.makeAppSyncApiKey()
             },
             Outputs: {
-                [ResourceConstants.OUTPUTS.AuthCognitoUserPoolNativeClientOutput]: this.makeNativeClientOutput(),
-                [ResourceConstants.OUTPUTS.AuthCognitoUserPoolJSClientOutput]: this.makeJSClientOutput(),
-                [ResourceConstants.OUTPUTS.AuthCognitoUserPoolIdOutput]: this.makeUserPoolOutput(),
                 [ResourceConstants.OUTPUTS.GraphQLAPIApiKeyOutput]: this.makeApiKeyOutput()
             },
             Conditions: {
-                [ResourceConstants.CONDITIONS.AuthShouldCreateUserPool]: this.makeShouldCreateUserPoolCondition(),
                 [ResourceConstants.CONDITIONS.ShouldCreateAPIKey]:
-                Fn.And([
-                    Fn.Not(Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.APIKeyExpirationEpoch), -1)),
-                    Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId), ResourceConstants.NONE)
-                ]),
-            [ResourceConstants.CONDITIONS.APIKeyExpirationEpochIsPositive]:
-                Fn.And([
-                    Fn.Not(Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.APIKeyExpirationEpoch), -1)),
-                    Fn.Not(Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.APIKeyExpirationEpoch), 0))
-                ]),
+                    Fn.And([
+                        Fn.Not(Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.APIKeyExpirationEpoch), -1)),
+                        Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId), ResourceConstants.NONE)
+                    ]),
+                [ResourceConstants.CONDITIONS.APIKeyExpirationEpochIsPositive]:
+                    Fn.And([
+                        Fn.Not(Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.APIKeyExpirationEpoch), -1)),
+                        Fn.Not(Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.APIKeyExpirationEpoch), 0))
+                    ]),
             }
         }
     }
@@ -102,18 +80,9 @@ export class ResourceFactory {
         }).condition(ResourceConstants.CONDITIONS.ShouldCreateAPIKey)
     }
 
-
-    /**
-     * Conditions
-     */
-    public makeShouldCreateUserPoolCondition(): Condition {
-        return Fn.Equals(Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId), ResourceConstants.NONE)
-    }
-
     /**
      * Outputs
      */
-
     public makeApiKeyOutput(): any {
         return {
             Description: "Your GraphQL API key. Provide via 'x-api-key' header.",
@@ -122,120 +91,22 @@ export class ResourceFactory {
                 Name: Fn.Join(':', [Refs.StackName, "GraphQLApiKey"])
             },
             Condition: ResourceConstants.CONDITIONS.ShouldCreateAPIKey
-        }
+        };
     }
 
-    public makeNativeClientOutput(): Output {
-        return {
-            Description: "Amazon Cognito UserPools native client ID",
-            Value: Fn.If(
-                ResourceConstants.CONDITIONS.AuthShouldCreateUserPool,
-                Fn.Ref(ResourceConstants.RESOURCES.AuthCognitoUserPoolNativeClientLogicalID),
-                Fn.Join(" ", ["See UserPool:", Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId)])
-            ),
-            Export: {
-                Name: Fn.Join(':', [Refs.StackName, "CognitoNativeClient"])
-            }
-        }
-    }
-
-    public makeJSClientOutput(): Output {
-        return {
-            Description: "Amazon Cognito UserPools JS client ID",
-            Value: Fn.If(
-                ResourceConstants.CONDITIONS.AuthShouldCreateUserPool,
-                Fn.Ref(ResourceConstants.RESOURCES.AuthCognitoUserPoolJSClientLogicalID),
-                Fn.Join(" ", ["See UserPool:", Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId)])
-            ),
-            Export: {
-                Name: Fn.Join(':', [Refs.StackName, "CognitoJSClient"])
-            }
-        }
-    }
-
-    public makeUserPoolOutput(): Output {
-        return {
-            Description: "Amazon Cognito UserPool id",
-            Value: Fn.If(
-                ResourceConstants.CONDITIONS.AuthShouldCreateUserPool,
-                Fn.Ref(ResourceConstants.RESOURCES.AuthCognitoUserPoolLogicalID),
-                Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId)
-            ),
-            Export: {
-                Name: Fn.Join(':', [Refs.StackName, "CognitoUserPoolId"])
-            }
-        }
-    }
-
-    public updateGraphQLAPIWithAuth(apiRecord: GraphQLAPI) {
+    public updateGraphQLAPIWithAuth(apiRecord: GraphQLAPI, authMode: AppSyncAuthModeModes) {
         return new GraphQLAPI({
             ...apiRecord.Properties,
             Name: apiRecord.Properties.Name,
-            AuthenticationType: 'AMAZON_COGNITO_USER_POOLS',
-            UserPoolConfig: new UserPoolConfig({
-                UserPoolId: Fn.If(
-                    ResourceConstants.CONDITIONS.AuthShouldCreateUserPool,
-                    Fn.Ref(ResourceConstants.RESOURCES.AuthCognitoUserPoolLogicalID),
-                    Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId)
-                ),
-                AwsRegion: Refs.Region,
-                DefaultAction: 'ALLOW'
-            })
+            AuthenticationType: authMode,
+            UserPoolConfig: authMode === 'AMAZON_COGNITO_USER_POOLS' ?
+                new UserPoolConfig({
+                    UserPoolId: Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId),
+                    AwsRegion: Refs.Region,
+                    DefaultAction: 'ALLOW'
+                }) :
+                undefined
         })
-    }
-
-    public makeUserPool() {
-        return new Cognito.UserPool({
-            UserPoolName: Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolName),
-            Policies: {
-                // TODO: Parameterize these as mappings so you have loose, medium, and strict options.
-                PasswordPolicy: {
-                    MinimumLength: 8,
-                    RequireLowercase: true,
-                    RequireNumbers: true,
-                    RequireSymbols: true,
-                    RequireUppercase: true
-                }
-            },
-            Schema: [
-                {
-                    Name: 'email',
-                    Required: true,
-                    Mutable: true
-                }
-            ],
-            AutoVerifiedAttributes: ['email']
-        }).condition(ResourceConstants.CONDITIONS.AuthShouldCreateUserPool)
-    }
-
-    public makeUserPoolNativeClient() {
-        return new Cognito.UserPoolClient({
-            ClientName: Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolMobileClientName),
-            UserPoolId: Fn.If(
-                ResourceConstants.CONDITIONS.AuthShouldCreateUserPool,
-                Fn.Ref(ResourceConstants.RESOURCES.AuthCognitoUserPoolLogicalID),
-                Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId)
-            ),
-            GenerateSecret: true,
-            RefreshTokenValidity: Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolRefreshTokenValidity),
-            ReadAttributes: [],
-            WriteAttributes: []
-        }).condition(ResourceConstants.CONDITIONS.AuthShouldCreateUserPool)
-    }
-
-    public makeUserPoolJSClient() {
-        return new Cognito.UserPoolClient({
-            ClientName: Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolJSClientName),
-            UserPoolId: Fn.If(
-                ResourceConstants.CONDITIONS.AuthShouldCreateUserPool,
-                Fn.Ref(ResourceConstants.RESOURCES.AuthCognitoUserPoolLogicalID),
-                Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolId)
-            ),
-            GenerateSecret: false,
-            RefreshTokenValidity: Fn.Ref(ResourceConstants.PARAMETERS.AuthCognitoUserPoolRefreshTokenValidity),
-            ReadAttributes: [],
-            WriteAttributes: []
-        }).condition(ResourceConstants.CONDITIONS.AuthShouldCreateUserPool)
     }
 
     /**

@@ -51,10 +51,6 @@ export class ResourceConstants {
 
         // Auth
         AuthCognitoUserPoolId: 'AuthCognitoUserPoolId',
-        AuthCognitoUserPoolName: 'AuthCognitoUserPoolName',
-        AuthCognitoUserPoolMobileClientName: 'AuthCognitoUserPoolMobileClientName',
-        AuthCognitoUserPoolJSClientName: 'AuthCognitoUserPoolJSClientName',
-        AuthCognitoUserPoolRefreshTokenValidity: 'AuthCognitoUserPoolRefreshTokenValidity'
     }
     public static MAPPINGS = {}
     public static CONDITIONS = {
@@ -66,7 +62,6 @@ export class ResourceConstants {
         ShouldUsePointInTimeRecovery: 'ShouldUsePointInTimeRecovery',
 
         // Auth
-        AuthShouldCreateUserPool: 'AuthShouldCreateUserPool',
         ShouldCreateAPIKey: 'ShouldCreateAPIKey',
         APIKeyExpirationEpochIsPositive: 'APIKeyExpirationEpochIsPositive',
     }
