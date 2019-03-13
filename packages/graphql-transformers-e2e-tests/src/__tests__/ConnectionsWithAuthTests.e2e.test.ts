@@ -238,12 +238,6 @@ beforeAll(async () => {
         GRAPHQL_ENDPOINT = getApiEndpoint(finishedStack.Outputs)
         console.log(`Using graphql url: ${GRAPHQL_ENDPOINT}`);
 
-        // Get the details of the created user pool
-        // const userPoolIdSelector = outputValueSelector(ResourceConstants.OUTPUTS.AuthCognitoUserPoolIdOutput)
-        // const userPoolClientIdSelector = outputValueSelector(ResourceConstants.OUTPUTS.AuthCognitoUserPoolJSClientOutput)
-        // const userPoolId = userPoolIdSelector(finishedStack.Outputs);
-        // const userPoolClientId = userPoolClientIdSelector(finishedStack.Outputs);
-
         // Verify we have all the details
         expect(GRAPHQL_ENDPOINT).toBeTruthy()
         expect(USER_POOL_ID).toBeTruthy()
