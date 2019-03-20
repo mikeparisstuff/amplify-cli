@@ -283,8 +283,13 @@ beforeAll(async () => {
         )
         expect(finishedStack).toBeDefined()
         const getApiEndpoint = outputValueSelector(ResourceConstants.OUTPUTS.GraphQLAPIEndpointOutput)
+        const getApiKey = outputValueSelector(ResourceConstants.OUTPUTS.GraphQLAPIApiKeyOutput)
         GRAPHQL_ENDPOINT = getApiEndpoint(finishedStack.Outputs)
         console.log(`Using graphql url: ${GRAPHQL_ENDPOINT}`);
+
+        const apiKey = getApiKey(finishedStack.Outputs)
+        console.log(`API KEY: ${apiKey}`);
+        expect(apiKey).not.toBeTruthy()
 
         // Verify we have all the details
         expect(GRAPHQL_ENDPOINT).toBeTruthy()

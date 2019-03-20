@@ -96,7 +96,6 @@ export class ModelAuthTransformer extends Transformer {
             `
         )
         this.config = config || { authMode: 'API_KEY' };
-        console.log(this.config)
         validateAuthMode(this.config.authMode);
         this.resources = new ResourceFactory();
     }
